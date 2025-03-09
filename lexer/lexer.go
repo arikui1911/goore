@@ -15,6 +15,7 @@ type Lexer struct {
 	line         int
 	col          int
 	lastNlCol    int
+	srcLastRune  rune
 	savedRune    rune
 	hasSavedRune bool
 	lastTag      token.TokenTag
@@ -120,13 +121,16 @@ func (l *Lexer) NextToken() (token.Token, error) {
 				case '\n':
 					if l.newlineRequired() {
 						t.Tag = token.Newline
+						t.Value = "\n"
 						return nil
 					}
 				case '}':
 					t.Tag = token.RightBrace
+					t.Value = "}"
 					if l.newlineRequired() {
 						l.ungetc(c)
 						t.Tag = token.Newline
+						t.Value = "\n"
 					}
 					return nil
 				case '#':
@@ -166,7 +170,25 @@ func (l *Lexer) NextToken() (token.Token, error) {
 				t.Tag = token.FloatLiteral
 				state = floatState
 			case intState:
+				if c != '.' && !unicode.IsDigit(c) {
+					l.ungetc(c)
+					return nil
+				}
+				t.Location.EndLine = line
+				t.Location.EndColumn = col
+				buf = append(buf, c)
+				if c == '.' {
+					t.Tag = token.FloatLiteral
+					state = floatState
+				}
 			case floatState:
+				if !unicode.IsDigit(c) {
+					l.ungetc(c)
+					return nil
+				}
+				t.Location.EndLine = line
+				t.Location.EndColumn = col
+				buf = append(buf, c)
 			case stringState:
 				switch c {
 				case '\\':
@@ -237,8 +259,39 @@ func (l *Lexer) NextToken() (token.Token, error) {
 	return t, nil
 }
 
+var newlineRequesters = map[token.TokenTag]bool{
+	token.IntLiteral:    true,
+	token.FloatLiteral:  true,
+	token.StringLiteral: true,
+	token.Identifier:    true,
+
+	token.RightParen:   true,
+	token.RightBrace:   true,
+	token.RightBracket: true,
+
+	token.True:     true,
+	token.False:    true,
+	token.Nil:      true,
+	token.Break:    true,
+	token.Continue: true,
+	token.Return:   true,
+}
+
 func (l *Lexer) newlineRequired() bool {
-	return false
+	_, ok := newlineRequesters[l.lastTag]
+	return ok
+}
+
+// This method does'nt regard to rune buffering.
+// DO NOT call directly.
+func (l *Lexer) srcGetc() (c rune, err error) {
+	c, _, err = l.src.ReadRune()
+	if err == io.EOF && l.srcLastRune != '\n' {
+		c = '\n'
+		err = nil
+	}
+	l.srcLastRune = c
+	return
 }
 
 func (l *Lexer) getc() (c rune, err error) {
@@ -246,7 +299,7 @@ func (l *Lexer) getc() (c rune, err error) {
 		l.hasSavedRune = false
 		c = l.savedRune
 	} else {
-		c, _, err = l.src.ReadRune()
+		c, err = l.srcGetc()
 	}
 	if err != nil {
 		return

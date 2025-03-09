@@ -1,5 +1,7 @@
 package token
 
+import "fmt"
+
 type Location struct {
 	StartLine   int
 	StartColumn int
@@ -7,8 +9,13 @@ type Location struct {
 	EndColumn   int
 }
 
+func (l Location) String() string {
+	return fmt.Sprintf("(%d:%d):(%d:%d)", l.StartLine, l.StartColumn, l.EndLine, l.EndColumn)
+}
+
 type TokenTag int
 
+//go:generate stringer -Type=TokenTag token.go
 const (
 	Invalid TokenTag = iota
 	EOF
@@ -64,4 +71,8 @@ type Token struct {
 	Tag      TokenTag
 	Value    string
 	Location Location
+}
+
+func (t Token) String() string {
+	return fmt.Sprintf("#<%T:%s>:%s:%#v", t, t.Location, t.Tag, t.Value)
 }
