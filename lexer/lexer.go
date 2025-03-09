@@ -243,7 +243,10 @@ func (l *Lexer) NextToken() (token.Token, error) {
 	}
 	switch state {
 	case stringState, stringEscState:
-		return token.Token{}, fmt.Errorf("%d:%d: unterminated string literal", t.Location.StartLine, t.Location.StartColumn)
+		return token.Token{}, fmt.Errorf(
+			"%d:%d: unterminated string literal",
+			t.Location.StartLine, t.Location.StartColumn,
+		)
 	case identState:
 		if v, ok := keywords[t.Value]; ok {
 			t.Tag = v
@@ -251,7 +254,10 @@ func (l *Lexer) NextToken() (token.Token, error) {
 	case operatorState:
 		v, ok := operators[t.Value]
 		if !ok {
-			return token.Token{}, fmt.Errorf("%d:%d: invalid character - '%c'", t.Location.StartLine, t.Location.StartColumn, buf[0])
+			return token.Token{}, fmt.Errorf(
+				"%d:%d: invalid character - '%c'",
+				t.Location.StartLine, t.Location.StartColumn, buf[0],
+			)
 		}
 		t.Tag = v
 	}
@@ -287,6 +293,7 @@ func (l *Lexer) newlineRequired() bool {
 func (l *Lexer) srcGetc() (c rune, err error) {
 	c, _, err = l.src.ReadRune()
 	if err == io.EOF && l.srcLastRune != '\n' {
+		// insert newline when there are no newline just before EOF.
 		c = '\n'
 		err = nil
 	}
