@@ -52,3 +52,28 @@ func (p *Parser) pushBack(t token.Token) {
 	p.hasSavedToken = true
 	p.savedToken = t
 }
+
+func (p *Parser) peekToken() (token.Token, error) {
+	t, err := p.nextToken()
+	if err != nil {
+		return token.Token{}, err
+	}
+	p.pushBack(t)
+	return t, nil
+}
+
+func (p *Parser) unexpected(t token.Token, ext string) error {
+	return fmt.Errorf("%s:%s: unexpected token - %#v(%s) %s", p.fileName, t.Location, t.Value, t.Tag, ext)
+}
+
+func setLocation(loc *token.Location, beg *token.Location, end *token.Location) *token.Location {
+	if beg != nil {
+		loc.StartLine = beg.StartLine
+		loc.StartColumn = beg.StartColumn
+	}
+	if end != nil {
+		loc.EndLine = end.EndLine
+		loc.EndColumn = end.EndColumn
+	}
+	return loc
+}

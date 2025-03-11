@@ -10,7 +10,11 @@ func parseProgram(p *Parser) (*ast.Program, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &ast.Program{FileName: p.fileName, Statements: stmts}, nil
+	loc := &token.Location{StartLine: 1, StartColumn: 1, EndLine: 1, EndColumn: 1}
+	if len(stmts) > 0 {
+		setLocation(loc, stmts[0].Location(), stmts[len(stmts)-1].Location())
+	}
+	return &ast.Program{Loc: loc, FileName: p.fileName, Statements: stmts}, nil
 }
 
 func parseStatements(p *Parser, term token.TokenTag) ([]ast.Statement, token.Token, error) {
@@ -41,11 +45,10 @@ var statementParsers = map[token.TokenTag]statementParser{
 }
 
 func parseStatement(p *Parser) (ast.Statement, error) {
-	t, err := p.nextToken()
+	t, err := p.peekToken()
 	if err != nil {
 		return nil, err
 	}
-	p.pushBack(t)
 	if fn, ok := statementParsers[t.Tag]; ok {
 		return fn(p)
 	}
@@ -53,11 +56,18 @@ func parseStatement(p *Parser) (ast.Statement, error) {
 }
 
 func parseExpressionStatement(p *Parser) (*ast.ExpressionStatement, error) {
-	x, err := parseExpression(p)
+	x, err := parseExpression(p, lowestPrecedence)
 	if err != nil {
 		return nil, err
 	}
-	return &ast.ExpressionStatement{Expression: x}, nil
+	t, err := p.nextToken()
+	if err != nil {
+		return nil, err
+	}
+	if t.Tag != token.Semicolon && t.Tag != token.Newline {
+		return nil, p.unexpected(t, "to terminate expression statement")
+	}
+	return &ast.ExpressionStatement{Loc: setLocation(&token.Location{}, x.Location(), &t.Location), Expression: x}, nil
 }
 
 func parseIf(p *Parser) (ast.Statement, error) {
