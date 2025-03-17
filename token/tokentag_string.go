@@ -31,33 +31,34 @@ func _() {
 	_ = x[LetMul-20]
 	_ = x[LetDiv-21]
 	_ = x[LetMod-22]
-	_ = x[Arrow-23]
-	_ = x[Comma-24]
-	_ = x[Colon-25]
-	_ = x[Semicolon-26]
-	_ = x[Newline-27]
-	_ = x[LeftParen-28]
-	_ = x[RightParen-29]
-	_ = x[LeftBrace-30]
-	_ = x[RightBrace-31]
-	_ = x[LeftBracket-32]
-	_ = x[RightBracket-33]
-	_ = x[True-34]
-	_ = x[False-35]
-	_ = x[Nil-36]
-	_ = x[Def-37]
-	_ = x[If-38]
-	_ = x[Elsif-39]
-	_ = x[Else-40]
-	_ = x[While-41]
-	_ = x[Break-42]
-	_ = x[Continue-43]
-	_ = x[Return-44]
+	_ = x[Bang-23]
+	_ = x[Arrow-24]
+	_ = x[Comma-25]
+	_ = x[Colon-26]
+	_ = x[Semicolon-27]
+	_ = x[Newline-28]
+	_ = x[LeftParen-29]
+	_ = x[RightParen-30]
+	_ = x[LeftBrace-31]
+	_ = x[RightBrace-32]
+	_ = x[LeftBracket-33]
+	_ = x[RightBracket-34]
+	_ = x[True-35]
+	_ = x[False-36]
+	_ = x[Nil-37]
+	_ = x[Def-38]
+	_ = x[If-39]
+	_ = x[Elsif-40]
+	_ = x[Else-41]
+	_ = x[While-42]
+	_ = x[Break-43]
+	_ = x[Continue-44]
+	_ = x[Return-45]
 }
 
-const _TokenTag_name = "InvalidEOFIntLiteralFloatLiteralStringLiteralIdentifierEqNeLeGeLtGtAddSubMulDivModLetLetAddLetSubLetMulLetDivLetModArrowCommaColonSemicolonNewlineLeftParenRightParenLeftBraceRightBraceLeftBracketRightBracketTrueFalseNilDefIfElsifElseWhileBreakContinueReturn"
+const _TokenTag_name = "InvalidEOFIntLiteralFloatLiteralStringLiteralIdentifierEqNeLeGeLtGtAddSubMulDivModLetLetAddLetSubLetMulLetDivLetModBangArrowCommaColonSemicolonNewlineLeftParenRightParenLeftBraceRightBraceLeftBracketRightBracketTrueFalseNilDefIfElsifElseWhileBreakContinueReturn"
 
-var _TokenTag_index = [...]uint16{0, 7, 10, 20, 32, 45, 55, 57, 59, 61, 63, 65, 67, 70, 73, 76, 79, 82, 85, 91, 97, 103, 109, 115, 120, 125, 130, 139, 146, 155, 165, 174, 184, 195, 207, 211, 216, 219, 222, 224, 229, 233, 238, 243, 251, 257}
+var _TokenTag_index = [...]uint16{0, 7, 10, 20, 32, 45, 55, 57, 59, 61, 63, 65, 67, 70, 73, 76, 79, 82, 85, 91, 97, 103, 109, 115, 119, 124, 129, 134, 143, 150, 159, 169, 178, 188, 199, 211, 215, 220, 223, 226, 228, 233, 237, 242, 247, 255, 261}
 
 func (i TokenTag) String() string {
 	if i < 0 || i >= TokenTag(len(_TokenTag_index)-1) {

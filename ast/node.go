@@ -33,11 +33,20 @@ func (n *Program) Location() *token.Location {
 	return n.Loc
 }
 
-func dumpHeader(n Node, w io.Writer, lv int) {
+func indent(w io.Writer, lv int) {
 	for i := 0; i < lv; i++ {
 		fmt.Fprint(w, "  ")
 	}
+}
+
+func dumpHeader(n Node, w io.Writer, lv int) {
+	indent(w, lv)
 	fmt.Fprintf(w, "%s:%T", n.Location(), n)
+}
+
+func attrHeader(s string, w io.Writer, lv int) {
+	indent(w, lv)
+	fmt.Fprintf(w, "@%s:\n", s)
 }
 
 func (n *Program) dump(w io.Writer, lv int) {
@@ -101,6 +110,37 @@ func (n *Identifier) dump(w io.Writer, lv int) {
 	fmt.Fprintf(w, ": %s\n", n.Name)
 }
 
+type NilLiteral struct {
+	Loc *token.Location
+}
+
+func (*NilLiteral) expression() {}
+
+func (n *NilLiteral) Location() *token.Location {
+	return n.Loc
+}
+
+func (n *NilLiteral) dump(w io.Writer, lv int) {
+	dumpHeader(n, w, lv)
+	fmt.Fprintf(w, "\n")
+}
+
+type BoolLiteral struct {
+	Loc   *token.Location
+	Value bool
+}
+
+func (*BoolLiteral) expression() {}
+
+func (n *BoolLiteral) Location() *token.Location {
+	return n.Loc
+}
+
+func (n *BoolLiteral) dump(w io.Writer, lv int) {
+	dumpHeader(n, w, lv)
+	fmt.Fprintf(w, ": %v\n", n.Value)
+}
+
 type IntLiteral struct {
 	Loc   *token.Location
 	Value int
@@ -131,4 +171,251 @@ func (n *FloatLiteral) Location() *token.Location {
 func (n *FloatLiteral) dump(w io.Writer, lv int) {
 	dumpHeader(n, w, lv)
 	fmt.Fprintf(w, ": %f\n", n.Value)
+}
+
+type StringLiteral struct {
+	Loc   *token.Location
+	Value string
+}
+
+func (*StringLiteral) expression() {}
+
+func (n *StringLiteral) Location() *token.Location {
+	return n.Loc
+}
+
+func (n *StringLiteral) dump(w io.Writer, lv int) {
+	dumpHeader(n, w, lv)
+	fmt.Fprintf(w, ": %#v\n", n.Value)
+}
+
+//go:generate stringer -type=Operation node.go
+type Operation int
+
+const (
+	Plus Operation = iota
+	Minus
+	Not
+
+	Eq
+	Ne
+	Le
+	Ge
+	Lt
+	Gt
+	Add
+	Sub
+	Mul
+	Div
+	Mod
+)
+
+type PrefixExpression struct {
+	Loc      *token.Location
+	Operator Operation
+	Right    Expression
+}
+
+func (*PrefixExpression) expression() {}
+
+func (n *PrefixExpression) Location() *token.Location {
+	return n.Loc
+}
+
+func (n *PrefixExpression) dump(w io.Writer, lv int) {
+	dumpHeader(n, w, lv)
+	fmt.Fprintf(w, ": %v\n", n.Operator)
+	n.Right.dump(w, lv+1)
+}
+
+type ArrayLiteral struct {
+	Loc      *token.Location
+	Elements []Expression
+}
+
+func (*ArrayLiteral) expression() {}
+
+func (n *ArrayLiteral) Location() *token.Location {
+	return n.Loc
+}
+
+func (n *ArrayLiteral) dump(w io.Writer, lv int) {
+	dumpHeader(n, w, lv)
+	fmt.Fprintln(w, ":")
+	for _, e := range n.Elements {
+		e.dump(w, lv+1)
+	}
+}
+
+type HashLiteral struct {
+	Loc   *token.Location
+	Pairs []*HashEntry
+}
+
+func (*HashLiteral) expression() {}
+
+func (n *HashLiteral) Location() *token.Location {
+	return n.Loc
+}
+
+func (n *HashLiteral) dump(w io.Writer, lv int) {
+	dumpHeader(n, w, lv)
+	fmt.Fprintln(w, ":")
+	for _, p := range n.Pairs {
+		p.dump(w, lv+1)
+	}
+}
+
+type HashEntry struct {
+	Loc   *token.Location
+	Key   Expression
+	Value Expression
+}
+
+func (*HashEntry) expression() {}
+
+func (n *HashEntry) Location() *token.Location {
+	return n.Loc
+}
+
+func (n *HashEntry) dump(w io.Writer, lv int) {
+	dumpHeader(n, w, lv)
+	fmt.Fprintln(w, ":")
+	attrHeader("Key", w, lv+1)
+	n.Key.dump(w, lv+1)
+	attrHeader("Value", w, lv+1)
+	n.Value.dump(w, lv+1)
+}
+
+type FunctionLiteral struct {
+	Loc        *token.Location
+	Parameters []*Identifier
+	Statements []Statement
+}
+
+func (*FunctionLiteral) expression() {}
+
+func (n *FunctionLiteral) Location() *token.Location {
+	return n.Loc
+}
+
+func (n *FunctionLiteral) dump(w io.Writer, lv int) {
+	dumpHeader(n, w, lv)
+	fmt.Fprintln(w, ":")
+	attrHeader("Parameters", w, lv+1)
+	for _, p := range n.Parameters {
+		p.dump(w, lv+1)
+	}
+	attrHeader("Statements", w, lv+1)
+	for _, s := range n.Statements {
+		s.dump(w, lv+1)
+	}
+}
+
+type InfixExpression struct {
+	Loc      *token.Location
+	Operator Operation
+	Left     Expression
+	Right    Expression
+}
+
+func (*InfixExpression) expression() {}
+
+func (n *InfixExpression) Location() *token.Location {
+	return n.Loc
+}
+
+func (n *InfixExpression) dump(w io.Writer, lv int) {
+	dumpHeader(n, w, lv)
+	fmt.Fprintf(w, ": %v\n", n.Operator)
+	attrHeader("Left", w, lv+1)
+	n.Left.dump(w, lv+1)
+	attrHeader("Right", w, lv+1)
+	n.Right.dump(w, lv+1)
+}
+
+type Call struct {
+	Loc       *token.Location
+	Function  Expression
+	Arguments []Expression
+}
+
+func (*Call) expression() {}
+
+func (n *Call) Location() *token.Location {
+	return n.Loc
+}
+
+func (n *Call) dump(w io.Writer, lv int) {
+	dumpHeader(n, w, lv)
+	fmt.Fprintln(w, ":")
+	attrHeader("Function", w, lv+1)
+	n.Function.dump(w, lv+1)
+	attrHeader("Arguments", w, lv+1)
+	for _, a := range n.Arguments {
+		a.dump(w, lv+1)
+	}
+}
+
+type KeyAccess struct {
+	Loc       *token.Location
+	Container Expression
+	Key       Expression
+}
+
+func (*KeyAccess) expression() {}
+
+func (n *KeyAccess) Location() *token.Location {
+	return n.Loc
+}
+
+func (n *KeyAccess) dump(w io.Writer, lv int) {
+	dumpHeader(n, w, lv)
+	fmt.Fprintln(w, ":")
+	attrHeader("Container", w, lv+1)
+	n.Container.dump(w, lv+1)
+	attrHeader("Key", w, lv+1)
+	n.Key.dump(w, lv+1)
+}
+
+type Let struct {
+	Loc   *token.Location
+	Left  *Identifier
+	Right Expression
+}
+
+func (*Let) expression() {}
+
+func (n *Let) Location() *token.Location {
+	return n.Loc
+}
+
+func (n *Let) dump(w io.Writer, lv int) {
+	dumpHeader(n, w, lv)
+	fmt.Fprintln(w, ":")
+	attrHeader("Left", w, lv+1)
+	n.Left.dump(w, lv+1)
+	attrHeader("Right", w, lv+1)
+	n.Right.dump(w, lv+1)
+}
+
+type KeyAssign struct {
+	Loc   *token.Location
+	Left  *KeyAccess
+	Right Expression
+}
+
+func (*KeyAssign) expression() {}
+
+func (n *KeyAssign) Location() *token.Location {
+	return n.Loc
+}
+
+func (n *KeyAssign) dump(w io.Writer, lv int) {
+	dumpHeader(n, w, lv)
+	fmt.Fprintln(w, ":")
+	attrHeader("Left", w, lv+1)
+	n.Left.dump(w, lv+1)
+	attrHeader("Right", w, lv+1)
+	n.Right.dump(w, lv+1)
 }

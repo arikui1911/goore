@@ -59,6 +59,7 @@ var operators = map[string]token.TokenTag{
 	"*=": token.LetMul,
 	"/=": token.LetDiv,
 	"%=": token.LetMod,
+	"!":  token.Bang,
 	"->": token.Arrow,
 	",":  token.Comma,
 	":":  token.Colon,

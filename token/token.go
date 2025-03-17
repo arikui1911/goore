@@ -42,6 +42,7 @@ const (
 	LetMul
 	LetDiv
 	LetMod
+	Bang
 	Arrow
 	Comma
 	Colon

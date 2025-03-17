@@ -18,6 +18,39 @@ func TestParseIdentifier(t *testing.T) {
 	})
 }
 
+func TestParseNilLiteral(t *testing.T) {
+	tree, err := parser.ParseString(`nil`, "test.goore")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	testOneExpression(t, tree, func(t *testing.T, x ast.Expression) {
+		testNilLiteral(t, x)
+	})
+}
+
+func TestParseTrueLiteral(t *testing.T) {
+	tree, err := parser.ParseString(`true`, "test.goore")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	testOneExpression(t, tree, func(t *testing.T, x ast.Expression) {
+		testBoolLiteral(t, x, true)
+	})
+}
+
+func TestParseFalseLiteral(t *testing.T) {
+	tree, err := parser.ParseString(`false`, "test.goore")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	testOneExpression(t, tree, func(t *testing.T, x ast.Expression) {
+		testBoolLiteral(t, x, false)
+	})
+}
+
 func TestParseIntLiteral(t *testing.T) {
 	tree, err := parser.ParseString(`123`, "test.goore")
 	if err != nil {
@@ -38,6 +71,129 @@ func TestParseFloatLiteral(t *testing.T) {
 	testOneExpression(t, tree, func(t *testing.T, x ast.Expression) {
 		testFloatLiteral(t, x, 1.23)
 	})
+}
+
+func TestParseStringLiteral(t *testing.T) {
+	tree, err := parser.ParseString(`"Hello."`, "test.goore")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	testOneExpression(t, tree, func(t *testing.T, x ast.Expression) {
+		testStringLiteral(t, x, "Hello.")
+	})
+}
+
+func TestParsePrefixExpressions(t *testing.T) {
+	table := []struct {
+		name string
+		src  string
+		op   ast.Operation
+		val  int
+	}{
+		{"plus", `+123`, ast.Plus, 123},
+		{"minus", `-123`, ast.Minus, 123},
+		{"not", `!123`, ast.Not, 123},
+	}
+
+	for _, d := range table {
+		t.Run(d.name, func(t *testing.T) {
+			tree, err := parser.ParseString(d.src, "test.goore")
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			testOneExpression(t, tree, func(t *testing.T, x ast.Expression) {
+				testPrefixExpression(t, x, d.op, d.val)
+			})
+		})
+	}
+}
+
+func TestParseParened(t *testing.T) {
+	tree, err := parser.ParseString(`(123)`, "test.goore")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	testOneExpression(t, tree, func(t *testing.T, x ast.Expression) {
+		testIntLiteral(t, x, 123)
+	})
+}
+
+func TestParseInfixExpressions(t *testing.T) {
+	table := []struct {
+		name  string
+		src   string
+		op    ast.Operation
+		left  int
+		right int
+	}{
+		{"Eq", `1 == 2`, ast.Eq, 1, 2},
+		{"Ne", `1 != 2`, ast.Ne, 1, 2},
+		{"Le", `1 <= 2`, ast.Le, 1, 2},
+		{"Ge", `1 >= 2`, ast.Ge, 1, 2},
+		{"Lt", `1 < 2`, ast.Lt, 1, 2},
+		{"Gt", `1 > 2`, ast.Gt, 1, 2},
+		{"Add", `1 + 2`, ast.Add, 1, 2},
+		{"Sub", `1 - 2`, ast.Sub, 1, 2},
+		{"Mul", `1 * 2`, ast.Mul, 1, 2},
+		{"Div", `1 / 2`, ast.Div, 1, 2},
+		{"Mod", `1 % 2`, ast.Mod, 1, 2},
+	}
+
+	for _, d := range table {
+		t.Run(d.name, func(t *testing.T) {
+			tree, err := parser.ParseString(d.src, "test.goore")
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			testOneExpression(t, tree, func(t *testing.T, x ast.Expression) {
+				testInfixExpression(t, x, d.op, d.left, d.right)
+			})
+		})
+	}
+}
+
+func TestParseArrayLiterals(t *testing.T) {
+	table := []struct {
+		name string
+		src  string
+		vals []int
+	}{
+		{"empty", `[]`, []int{}},
+		{"one element", `[123]`, []int{123}},
+		{"several elements", `[1, 2, 3]`, []int{1, 2, 3}},
+	}
+
+	for _, d := range table {
+		t.Run(d.name, func(t *testing.T) {
+			tree, err := parser.ParseString(d.src, "test.goore")
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			testOneExpression(t, tree, func(t *testing.T, x ast.Expression) {
+				testArrayLiteral(t, x, d.vals)
+			})
+		})
+	}
+}
+
+func testArrayLiteral(t *testing.T, x ast.Expression, vals []int) {
+	a, ok := x.(*ast.ArrayLiteral)
+	if !ok {
+		t.Errorf("want <%T> got <%T>", &ast.ArrayLiteral{}, x)
+		return
+	}
+	if len(a.Elements) != len(vals) {
+		t.Errorf("want <%d> got <%d>", len(vals), len(a.Elements))
+		return
+	}
+	for i, e := range a.Elements {
+		testIntLiteral(t, e, vals[i])
+	}
 }
 
 func testProgram(t *testing.T, tree ast.Node, nStmts int, inner func(*testing.T, []ast.Statement)) {
@@ -80,6 +236,26 @@ func testIdentifier(t *testing.T, expr ast.Expression, name string) {
 	}
 }
 
+func testNilLiteral(t *testing.T, expr ast.Expression) {
+	_, ok := expr.(*ast.NilLiteral)
+	if !ok {
+		t.Errorf("want <%T> got <%T>", &ast.NilLiteral{}, expr)
+		return
+	}
+}
+
+func testBoolLiteral(t *testing.T, expr ast.Expression, val bool) {
+	x, ok := expr.(*ast.BoolLiteral)
+	if !ok {
+		t.Errorf("want <%T> got <%T>", &ast.BoolLiteral{}, expr)
+		return
+	}
+	if x.Value != val {
+		t.Errorf("want <%v> got <%v>", val, x.Value)
+		return
+	}
+}
+
 func testIntLiteral(t *testing.T, expr ast.Expression, val int) {
 	x, ok := expr.(*ast.IntLiteral)
 	if !ok {
@@ -102,4 +278,43 @@ func testFloatLiteral(t *testing.T, expr ast.Expression, val float64) {
 		t.Errorf("want <%f> got <%f>", val, x.Value)
 		return
 	}
+}
+
+func testStringLiteral(t *testing.T, expr ast.Expression, val string) {
+	x, ok := expr.(*ast.StringLiteral)
+	if !ok {
+		t.Errorf("want <%T> got <%T>", &ast.StringLiteral{}, expr)
+		return
+	}
+	if x.Value != val {
+		t.Errorf("want <%#v> got <%#v>", val, x.Value)
+		return
+	}
+}
+
+func testPrefixExpression(t *testing.T, expr ast.Expression, op ast.Operation, val int) {
+	x, ok := expr.(*ast.PrefixExpression)
+	if !ok {
+		t.Errorf("want <%T> got <%T>", &ast.PrefixExpression{}, expr)
+		return
+	}
+	if x.Operator != op {
+		t.Errorf("want <%v> got <%v>", op, x.Operator)
+		return
+	}
+	testIntLiteral(t, x.Right, val)
+}
+
+func testInfixExpression(t *testing.T, expr ast.Expression, op ast.Operation, l int, r int) {
+	x, ok := expr.(*ast.InfixExpression)
+	if !ok {
+		t.Errorf("want <%T> got <%T>", &ast.InfixExpression{}, expr)
+		return
+	}
+	if x.Operator != op {
+		t.Errorf("want <%v> got <%v>", op, x.Operator)
+		return
+	}
+	testIntLiteral(t, x.Left, l)
+	testIntLiteral(t, x.Right, r)
 }

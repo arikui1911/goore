@@ -48,6 +48,7 @@ func TestLexFirstToken(t *testing.T) {
 		{"let mul", `*=`, token.LetMul, "*="},
 		{"let div", `/=`, token.LetDiv, "/="},
 		{"let mod", `%=`, token.LetMod, "%="},
+		{"bang", `!`, token.Bang, "!"},
 		{"arrow", `->`, token.Arrow, "->"},
 		{"comma", `,`, token.Comma, ","},
 		{"colon", `:`, token.Colon, ":"},
