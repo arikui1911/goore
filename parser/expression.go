@@ -45,6 +45,7 @@ func init() {
 		token.LeftBracket:   parseArrayLiteral,
 		token.LeftBrace:     parseHashLiteral,
 		token.Arrow:         parseFunctionLiteral,
+		token.If:            parseIf,
 	}
 	infixedParsers = map[token.TokenTag]infixedParser{
 		token.Eq:          parseInfixed,
@@ -132,6 +133,9 @@ func parseIdentifier(p *Parser) (ast.Expression, error) {
 	if err != nil {
 		return nil, err
 	}
+	if t.Tag != token.Identifier {
+		return nil, p.unexpected(t, "expect identifier")
+	}
 	return &ast.Identifier{Loc: &t.Location, Name: t.Value}, nil
 }
 
@@ -199,7 +203,7 @@ func parsePrefixed(p *Parser) (ast.Expression, error) {
 		return nil, err
 	}
 	return &ast.PrefixExpression{
-		Loc:      setLocation(&token.Location{}, &t.Location, x.Location()),
+		Loc:      setLocation(nil, &t.Location, x.Location()),
 		Operator: prefixOperators[t.Tag],
 		Right:    x,
 	}, nil
@@ -234,7 +238,7 @@ func parseArrayLiteral(p *Parser) (ast.Expression, error) {
 		return nil, err
 	}
 	return &ast.ArrayLiteral{
-		Loc:      setLocation(&token.Location{}, &lb.Location, &rb.Location),
+		Loc:      setLocation(nil, &lb.Location, &rb.Location),
 		Elements: elems,
 	}, nil
 }
@@ -253,7 +257,7 @@ func parseHashLiteral(p *Parser) (ast.Expression, error) {
 		return nil, err
 	}
 	return &ast.HashLiteral{
-		Loc:   setLocation(&token.Location{}, &lb.Location, &rb.Location),
+		Loc:   setLocation(nil, &lb.Location, &rb.Location),
 		Pairs: pairs,
 	}, nil
 }
@@ -275,7 +279,7 @@ func parseHashEntry(p *Parser) (*ast.HashEntry, error) {
 		return nil, err
 	}
 	return &ast.HashEntry{
-		Loc:   setLocation(&token.Location{}, k.Location(), v.Location()),
+		Loc:   setLocation(nil, k.Location(), v.Location()),
 		Key:   k,
 		Value: v,
 	}, nil
@@ -302,21 +306,13 @@ func parseFunctionLiteral(p *Parser) (ast.Expression, error) {
 		params = []*ast.Identifier{}
 	}
 
-	t, err = p.nextToken()
-	if err != nil {
-		return nil, err
-	}
-	if t.Tag != token.LeftBrace {
-		return nil, p.unexpected(t, "expect left brace to begin block")
-	}
-
-	stmts, rb, err := parseStatements(p, token.RightBrace)
+	stmts, rb, err := parseBlock(p)
 	if err != nil {
 		return nil, err
 	}
 
 	return &ast.FunctionLiteral{
-		Loc:        setLocation(&token.Location{}, &arrow.Location, &rb.Location),
+		Loc:        setLocation(nil, &arrow.Location, &rb.Location),
 		Parameters: params,
 		Statements: stmts,
 	}, nil
@@ -331,6 +327,42 @@ func parseParameter(p *Parser) (*ast.Identifier, error) {
 		return nil, p.unexpected(t, "expect identifier as parameter name")
 	}
 	return &ast.Identifier{Loc: &t.Location, Name: t.Value}, nil
+}
+
+func parseIf(p *Parser) (ast.Expression, error) {
+	kw, err := p.nextToken()
+	if err != nil {
+		return nil, err
+	}
+	switch kw.Tag {
+	case token.If, token.Elsif:
+		test, err := parseExpression(p, lowestPrecedence)
+		if err != nil {
+			return nil, err
+		}
+		body, rb, err := parseBlock(p)
+		if err != nil {
+			return nil, err
+		}
+		alt, err := parseIf(p)
+		if err != nil {
+			return nil, err
+		}
+		loc := setLocation(nil, &kw.Location, &rb.Location)
+		if alt != nil {
+			loc = setLocation(loc, nil, alt.Location())
+		}
+		return &ast.If{Loc: loc, Test: test, Body: body, Alt: alt}, nil
+	case token.Else:
+		body, rb, err := parseBlock(p)
+		if err != nil {
+			return nil, err
+		}
+		return &ast.Else{Loc: setLocation(nil, &kw.Location, &rb.Location), Body: body}, nil
+	default:
+		p.pushBack(kw)
+		return nil, nil
+	}
 }
 
 var infixOperators = map[token.TokenTag]ast.Operation{
@@ -357,7 +389,7 @@ func parseInfixed(p *Parser, left ast.Expression) (ast.Expression, error) {
 		return nil, err
 	}
 	return &ast.InfixExpression{
-		Loc:      setLocation(&token.Location{}, left.Location(), right.Location()),
+		Loc:      setLocation(nil, left.Location(), right.Location()),
 		Operator: infixOperators[t.Tag],
 		Left:     left,
 		Right:    right,
@@ -374,7 +406,7 @@ func parseCall(p *Parser, fn ast.Expression) (ast.Expression, error) {
 		return nil, err
 	}
 	return &ast.Call{
-		Loc:       setLocation(&token.Location{}, fn.Location(), &rp.Location),
+		Loc:       setLocation(nil, fn.Location(), &rp.Location),
 		Function:  fn,
 		Arguments: args,
 	}, nil
@@ -409,7 +441,7 @@ func parseKeyAccess(p *Parser, c ast.Expression) (ast.Expression, error) {
 	}
 
 	return &ast.KeyAccess{
-		Loc:       setLocation(&token.Location{}, c.Location(), &t.Location),
+		Loc:       setLocation(nil, c.Location(), &t.Location),
 		Container: c,
 		Key:       k,
 	}, nil
@@ -446,7 +478,7 @@ func parseLet(p *Parser, left ast.Expression) (ast.Expression, error) {
 
 	if op, ok := selfLetOperators[let.Tag]; ok {
 		right = &ast.InfixExpression{
-			Loc:      setLocation(&token.Location{}, left.Location(), right.Location()),
+			Loc:      setLocation(nil, left.Location(), right.Location()),
 			Operator: op,
 			Left:     left,
 			Right:    right,
@@ -455,14 +487,14 @@ func parseLet(p *Parser, left ast.Expression) (ast.Expression, error) {
 
 	if isLet {
 		return &ast.Let{
-			Loc:   setLocation(&token.Location{}, left.Location(), right.Location()),
+			Loc:   setLocation(nil, left.Location(), right.Location()),
 			Left:  left.(*ast.Identifier),
 			Right: right,
 		}, nil
 	}
 
 	return &ast.KeyAssign{
-		Loc:   setLocation(&token.Location{}, left.Location(), right.Location()),
+		Loc:   setLocation(nil, left.Location(), right.Location()),
 		Left:  left.(*ast.KeyAccess),
 		Right: right,
 	}, nil
@@ -499,10 +531,13 @@ func parseCommaList[T ast.Expression](p *Parser, term token.TokenTag, elementPar
 			if err != nil {
 				return nil, token.Token{}, err
 			}
-			if nt.Tag != term {
-				return nil, token.Token{}, p.unexpected(nt, fmt.Sprintf("expect %v", term))
+			if nt.Tag == term {
+				return list, nt, nil
 			}
-			return list, nt, nil
+
+			// カンマが欠けていたので改行トークンが入ってしまったとして、次の要素へ
+			p.pushBack(nt)
+			p.addError(fmt.Errorf("%s:%s: missing comma for delimiter", p.fileName, nt.Location))
 		case term:
 			// term without auto newline (e.g. [123])
 			return list, t, nil
@@ -516,15 +551,17 @@ func parseCommaList[T ast.Expression](p *Parser, term token.TokenTag, elementPar
 				return list, t, nil
 			}
 			p.pushBack(t)
-
-			// next element
-			e, err := elementParser(p)
-			if err != nil {
-				return nil, token.Token{}, err
-			}
-			list = append(list, e)
 		default:
-			return nil, token.Token{}, p.unexpected(t, "comma expected as a delimiter")
+			// カンマが欠けてると仮定して、次の要素を読みにいく
+			p.pushBack(t)
+			p.addError(fmt.Errorf("%s:%s: missing comma for delimiter", p.fileName, t.Location))
 		}
+
+		// next element
+		e, err := elementParser(p)
+		if err != nil {
+			return nil, token.Token{}, err
+		}
+		list = append(list, e)
 	}
 }

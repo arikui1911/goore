@@ -25,6 +25,7 @@ type Program struct {
 	Loc        *token.Location
 	FileName   string
 	Statements []Statement
+	Err        error
 }
 
 func (*Program) statement() {}
@@ -57,20 +58,164 @@ func (n *Program) dump(w io.Writer, lv int) {
 	}
 }
 
+type InvalidStatement struct {
+	Loc *token.Location
+	Err error
+}
+
+func (*InvalidStatement) statement() {}
+
+func (n *InvalidStatement) Location() *token.Location {
+	return n.Loc
+}
+
+func (n *InvalidStatement) dump(w io.Writer, lv int) {
+	dumpHeader(n, w, lv)
+	fmt.Fprintf(w, ": %v\n", n.Err)
+}
+
+type Def struct {
+	Loc  *token.Location
+	Name *Identifier
+	Init Expression
+}
+
+func (*Def) statement() {}
+
+func (n *Def) Location() *token.Location {
+	return n.Loc
+}
+
+func (n *Def) dump(w io.Writer, lv int) {
+	dumpHeader(n, w, lv)
+	fmt.Fprintln(w, ":")
+	attrHeader("Name", w, lv+1)
+	n.Name.dump(w, lv+1)
+	if n.Init == nil {
+		return
+	}
+	attrHeader("Init", w, lv+1)
+	n.Init.dump(w, lv+1)
+}
+
+type While struct {
+	Loc  *token.Location
+	Cond Expression
+	Body []Statement
+}
+
+func (*While) statement() {}
+
+func (n *While) Location() *token.Location {
+	return n.Loc
+}
+
+func (n *While) dump(w io.Writer, lv int) {
+	dumpHeader(n, w, lv)
+	fmt.Fprintln(w, ":")
+	attrHeader("Cond", w, lv+1)
+	n.Cond.dump(w, lv+1)
+	attrHeader("Body", w, lv+1)
+	for _, s := range n.Body {
+		s.dump(w, lv+1)
+	}
+}
+
+type Break struct {
+	Loc *token.Location
+}
+
+func (*Break) statement() {}
+
+func (n *Break) Location() *token.Location {
+	return n.Loc
+}
+
+func (n *Break) dump(w io.Writer, lv int) {
+	dumpHeader(n, w, lv)
+	fmt.Fprintln(w, "")
+}
+
+type Continue struct {
+	Loc *token.Location
+}
+
+func (*Continue) statement() {}
+
+func (n *Continue) Location() *token.Location {
+	return n.Loc
+}
+
+func (n *Continue) dump(w io.Writer, lv int) {
+	dumpHeader(n, w, lv)
+	fmt.Fprintln(w, "")
+}
+
+type Return struct {
+	Loc        *token.Location
+	Expression Expression
+}
+
+func (*Return) statement() {}
+
+func (n *Return) Location() *token.Location {
+	return n.Loc
+}
+
+func (n *Return) dump(w io.Writer, lv int) {
+	dumpHeader(n, w, lv)
+	if n.Expression == nil {
+		fmt.Fprintln(w, "")
+		return
+	}
+	fmt.Fprintln(w, ":")
+	n.Expression.dump(w, lv+1)
+}
+
 type If struct {
 	Loc  *token.Location
 	Test Expression
 	Body []Statement
-	Alt  []Statement
+	Alt  Expression
 }
 
-func (*If) statement() {}
+func (*If) expression() {}
 
 func (n *If) Location() *token.Location {
 	return n.Loc
 }
 
-func (n *If) dump(w io.Writer, lv int) {}
+func (n *If) dump(w io.Writer, lv int) {
+	dumpHeader(n, w, lv)
+	fmt.Fprintln(w, ":")
+	attrHeader("Test", w, lv+1)
+	n.Test.dump(w, lv+1)
+	attrHeader("Body", w, lv+1)
+	for _, s := range n.Body {
+		s.dump(w, lv+1)
+	}
+	attrHeader("Alt", w, lv+1)
+	n.Alt.dump(w, lv+1)
+}
+
+type Else struct {
+	Loc  *token.Location
+	Body []Statement
+}
+
+func (*Else) expression() {}
+
+func (n *Else) Location() *token.Location {
+	return n.Loc
+}
+
+func (n *Else) dump(w io.Writer, lv int) {
+	dumpHeader(n, w, lv)
+	fmt.Fprintln(w, ":")
+	for _, s := range n.Body {
+		s.dump(w, lv+1)
+	}
+}
 
 type ExpressionStatement struct {
 	Loc        *token.Location

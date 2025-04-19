@@ -10,11 +10,11 @@ import (
 	"github.com/arikui1911/goore/token"
 )
 
-func ParseReader(src io.Reader, fileName string) (ast.Node, error) {
+func ParseReader(src io.Reader, fileName string) (*ast.Program, error) {
 	return New(lexer.New(src), fileName).Parse()
 }
 
-func ParseString(src string, fileName string) (ast.Node, error) {
+func ParseString(src string, fileName string) (*ast.Program, error) {
 	return ParseReader(strings.NewReader(src), fileName)
 }
 
@@ -23,16 +23,18 @@ type Parser struct {
 	fileName      string
 	savedToken    token.Token
 	hasSavedToken bool
+	errs          []error
 }
 
 func New(l *lexer.Lexer, fileName string) *Parser {
 	return &Parser{
 		lexer:    l,
 		fileName: fileName,
+		errs:     []error{},
 	}
 }
 
-func (p *Parser) Parse() (ast.Node, error) {
+func (p *Parser) Parse() (*ast.Program, error) {
 	return parseProgram(p)
 }
 
@@ -66,7 +68,14 @@ func (p *Parser) unexpected(t token.Token, ext string) error {
 	return fmt.Errorf("%s:%s: unexpected token - %#v(%s) %s", p.fileName, t.Location, t.Value, t.Tag, ext)
 }
 
+func (p *Parser) addError(err error) {
+	p.errs = append(p.errs, err)
+}
+
 func setLocation(loc *token.Location, beg *token.Location, end *token.Location) *token.Location {
+	if loc == nil {
+		loc = &token.Location{}
+	}
 	if beg != nil {
 		loc.StartLine = beg.StartLine
 		loc.StartColumn = beg.StartColumn
